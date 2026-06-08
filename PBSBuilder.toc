@@ -1,0 +1,15 @@
+## Interface: 110200
+## Title: PBS Builder
+## Notes: Visual drag-and-drop script builder for Pet Battle Scripts (PBS)
+## Author: scaljei
+## Version: 1.0.0
+## Dependencies: tdBattlePetScript
+## SavedVariables: PBSBuilderDB
+
+Core/Constants.lua
+Core/Utils.lua
+Core/UI.lua
+Core/ScriptEditor.lua
+Core/ActionRow.lua
+Core/ConditionPicker.lua
+Core/PBSBuilder.lua
