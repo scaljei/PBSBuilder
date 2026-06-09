@@ -108,8 +108,8 @@ function B:CreateDropdown(parent, w, h, items, onSelect)
 
     -- Popup list frame (parented to UIParent so it floats above everything)
     local popup = CreateFrame("Frame", B:UniqueName("PBSDropPopup"), UIParent, "BackdropTemplate")
-    popup:SetFrameStrata("DIALOG")
-    popup:SetFrameLevel(200)
+    popup:SetFrameStrata("TOOLTIP")  -- always on top of any DIALOG window
+    popup:SetFrameLevel(100)
     -- IMPORTANT: popup must not block mouse when hidden
     popup:EnableMouse(true)
     popup:Hide()
@@ -127,7 +127,8 @@ function B:CreateDropdown(parent, w, h, items, onSelect)
         popup:SetHeight(math.min(#popupItems, 12) * rh + 4)
 
         for i, item in ipairs(popupItems) do
-            local row = CreateFrame("Button", nil, popup)
+            local row = CreateFrame("Button", nil, popup, "BackdropTemplate")
+            row:SetFrameLevel(popup:GetFrameLevel() + 1)
             row:SetSize(w, rh)
             row:SetPoint("TOPLEFT", popup, "TOPLEFT", 2, -2 - (i-1)*rh)
             local fs = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
