@@ -81,9 +81,10 @@ local function CreateDebugWindow()
     title:SetPoint("TOP", 0, -10)
     title:SetText("|cff55aaffPBS Builder|r  Debug Log")
 
-    -- Close button
+    -- Close button — must be above the window background layer
     local closeBtn = CreateFrame("Button", nil, diagWin, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", -4, -4)
+    closeBtn:SetFrameLevel(diagWin:GetFrameLevel() + 10)
+    closeBtn:SetPoint("TOPRIGHT", diagWin, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function() diagWin:Hide() end)
 
     -- Toolbar: Clear / Errors / Full Log buttons

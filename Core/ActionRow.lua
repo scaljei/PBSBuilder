@@ -175,7 +175,6 @@ function ActionRow:RebuildCondButtons()
         btn:SetWidth(math.max(60, fs:GetStringWidth() + 20))
         B:ApplyBackdrop(btn, 0.05, 0.12, 0.22, 0.9)
         btn:SetPoint("LEFT", self.condFrame, "LEFT", x, 0)
-        btn:SetPoint("VCENTER", self.condFrame, "CENTER")
         x = x + btn:GetWidth() + 3
 
         -- Right click to remove
