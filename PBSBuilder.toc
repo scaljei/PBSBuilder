@@ -6,6 +6,7 @@
 ## Dependencies: tdBattlePetScript
 ## SavedVariables: PBSBuilderDB
 
+Core/DebugLog.lua
 Core/Constants.lua
 Core/Utils.lua
 Core/UI.lua

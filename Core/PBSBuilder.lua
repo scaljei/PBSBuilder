@@ -23,6 +23,12 @@ local function BuildMainFrame()
     mainFrame:RegisterForDrag("LeftButton")
     mainFrame:SetScript("OnDragStart", function(s) s:StartMoving() end)
     mainFrame:SetScript("OnDragStop",  function(s) s:StopMovingOrSizing() end)
+    -- Close any open dropdown when clicking on the window background
+    mainFrame:SetScript("OnMouseDown", function(s, btn)
+        if B._closeOpenDropdown then B._closeOpenDropdown() end
+        if btn == "LeftButton" then s:StartMoving() end
+    end)
+    mainFrame:SetScript("OnMouseUp", function(s) s:StopMovingOrSizing() end)
     mainFrame:SetClampedToScreen(true)
     mainFrame:Hide()
 
@@ -224,7 +230,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
         PBSBuilderDB = PBSBuilderDB or {}
 
         CreateMinimapButton()
-        print("|cff55aaff[PBS Builder]|r loaded — |cff55ff55/pbsb|r to open.")
+        PBSBuilderDebug.log("Addon loaded OK. PBS present: " .. tostring(tdBattlePetScript ~= nil))
+        print("|cff55aaff[PBS Builder]|r loaded — |cff55ff55/pbsb|r to open, |cff55ff55/pbsbd|r for debug log.")
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)

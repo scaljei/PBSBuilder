@@ -106,10 +106,12 @@ function B:CreateDropdown(parent, w, h, items, onSelect)
     arrow:SetPoint("RIGHT", btn, "RIGHT", -4, 0)
     arrow:SetText("|cffaaaaaa▼|r")
 
-    -- Popup list frame (shared, hidden by default)
+    -- Popup list frame (parented to UIParent so it floats above everything)
     local popup = CreateFrame("Frame", B:UniqueName("PBSDropPopup"), UIParent, "BackdropTemplate")
     popup:SetFrameStrata("DIALOG")
     popup:SetFrameLevel(200)
+    -- IMPORTANT: popup must not block mouse when hidden
+    popup:EnableMouse(true)
     popup:Hide()
     B:ApplyBackdrop(popup, 0.05, 0.05, 0.15, 0.98)
     popup._items = items
@@ -198,8 +200,19 @@ function B:CreateDropdown(parent, w, h, items, onSelect)
     return btn
 end
 
--- Close dropdowns on global click
-local globalCatcher = CreateFrame("Frame", nil, UIParent)
-globalCatcher:EnableMouse(false)
-globalCatcher:SetAllPoints()
-globalCatcher:SetScript("OnMouseDown", function() CloseOpenDropdown() end)
+-- ─────────────────────────────────────────────────────────────
+-- Global dropdown closer
+-- IMPORTANT: must NOT use SetAllPoints on UIParent — that frame
+-- would swallow all mouse input and block camera right-click drag.
+-- Instead we hook OnMouseDown only on the *popup frames themselves*
+-- via their OnHide, and close on any WorldFrame click.
+-- ─────────────────────────────────────────────────────────────
+local worldClickCatcher = CreateFrame("Frame", nil, WorldFrame)
+worldClickCatcher:SetAllPoints(WorldFrame)
+worldClickCatcher:SetFrameStrata("BACKGROUND")
+worldClickCatcher:EnableMouse(false)  -- never block world interaction
+-- Dropdowns self-close via their popup OnHide and btn OnMouseDown logic above.
+-- If a dropdown is open and the user clicks anywhere outside it, the popup's
+-- own OnHide fires when another frame receives focus.  For belt-and-suspenders
+-- we also hook the main window's OnMouseDown to close any open dropdown.
+B._closeOpenDropdown = CloseOpenDropdown
