@@ -1,6 +1,6 @@
 -- PBSBuilder/Core/ConditionPicker.lua
 -- Modal popup for building a single PBS condition string
--- Calls back: onDone(conditionString)
+-- Fixes: #4 condition dropdown empty, #5 operator/value label overlap
 
 local B = PBSBuilder
 
@@ -39,202 +39,187 @@ local function OpItems(condType)
 end
 
 local function BuildConditionString(owner, pet, condId, op, arg, valArg)
-    -- Format: owner.pet.condId op value arg
-    -- PBS syntax:  ally.1.hp >= 500
-    --              ally.dead
-    --              ally.1.ability.usable 1
     local def = B:GetConditionDef(condId)
     if not def then return nil end
 
     local parts = {}
-
-    -- owner prefix
     if def.needOwner == true or def.needOwner == "optional" then
-        if owner and owner ~= "" then
-            table.insert(parts, owner)
-        end
+        if owner and owner ~= "" then table.insert(parts, owner) end
     end
-
-    -- pet slot
     if def.needPet ~= false and def.needPet ~= nil then
-        if pet and pet ~= "" then
-            table.insert(parts, pet)
-        end
+        if pet and pet ~= "" then table.insert(parts, pet) end
     end
-
-    -- condition id
     table.insert(parts, condId)
-
-    -- build the prefix
     local prefix = table.concat(parts, ".")
 
-    -- arg (aura name, ability slot, weather)
     local argStr = ""
     if def.needArg ~= false and arg and arg ~= "" and arg ~= (def.argHint or "") then
         argStr = " " .. arg
     end
 
-    -- operator + value
-    local valStr = ""
     if def.type == "boolean" then
-        if op and op == "!" then
-            valStr = " !"
-        end
-        return prefix .. argStr .. valStr
+        local neg = (op == "!") and " !" or ""
+        return prefix .. argStr .. neg
     else
-        -- compare / equality
-        if op and op ~= "" then
-            valStr = " " .. op
-        end
-        if valArg and valArg ~= "" then
+        local valStr = ""
+        if op and op ~= "" then valStr = " " .. op end
+        if valArg and valArg ~= "" and valArg ~= "0" then
             valStr = valStr .. " " .. valArg
         end
         return prefix .. argStr .. valStr
     end
 end
 
-function B:OpenConditionPicker(existing, onDone)
-    if not picker then
-        picker = CreateFrame("Frame", "PBSBuilderConditionPicker", UIParent, "BackdropTemplate")
-        picker:SetSize(420, 300)
-        picker:SetPoint("CENTER")
-        picker:SetFrameStrata("DIALOG")
-        picker:SetFrameLevel(300)
-        picker:EnableMouse(true)
-        picker:SetMovable(true)
-        picker:RegisterForDrag("LeftButton")
-        picker:SetScript("OnDragStart", function(s) s:StartMoving() end)
-        picker:SetScript("OnDragStop",  function(s) s:StopMovingOrSizing() end)
-        B:ApplyBackdrop(picker, 0.04, 0.04, 0.12, 0.97)
+-- ─────────────────────────────────────────────────────────────
+-- Build the singleton picker frame once
+-- ─────────────────────────────────────────────────────────────
+local function EnsurePicker()
+    if picker then return end
 
-        -- Title
-        local title = B:CreateLabel(picker, "Build Condition", 13, 0.9, 0.75, 0.2)
-        title:SetPoint("TOPLEFT", picker, "TOPLEFT", 10, -10)
-        picker._title = title
+    picker = CreateFrame("Frame", "PBSBuilderConditionPicker", UIParent, "BackdropTemplate")
+    picker:SetSize(440, 310)
+    picker:SetPoint("CENTER")
+    picker:SetFrameStrata("DIALOG")
+    picker:SetFrameLevel(300)
+    picker:EnableMouse(true)
+    picker:SetMovable(true)
+    picker:RegisterForDrag("LeftButton")
+    picker:SetScript("OnDragStart", function(s) s:StartMoving() end)
+    picker:SetScript("OnDragStop",  function(s) s:StopMovingOrSizing() end)
+    picker:SetClampedToScreen(true)
+    B:ApplyBackdrop(picker, 0.04, 0.04, 0.12, 0.97)
 
-        -- X close
-        local closeBtn = CreateFrame("Button", nil, picker, "UIPanelCloseButton")
-        closeBtn:SetPoint("TOPRIGHT", picker, "TOPRIGHT", -2, -2)
-        closeBtn:SetScript("OnClick", function() picker:Hide() end)
+    local title = B:CreateLabel(picker, "Build Condition", 13, 0.9, 0.75, 0.2)
+    title:SetPoint("TOPLEFT", picker, "TOPLEFT", 10, -10)
 
-        local ROW_Y = -40
-        local LABEL_W = 80
-        local CTRL_W  = 200
-        local CTRL_H  = 22
-        local GAP     = 8
+    local closeBtn = CreateFrame("Button", nil, picker, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", picker, "TOPRIGHT", -2, -2)
+    closeBtn:SetScript("OnClick", function() picker:Hide() end)
 
-        local function MakeRow(label, yOff)
-            local lbl = B:CreateLabel(picker, label, 11, 0.7, 0.7, 0.9)
-            lbl:SetPoint("TOPLEFT", picker, "TOPLEFT", 10, yOff)
-            lbl:SetWidth(LABEL_W)
-            lbl:SetJustifyH("RIGHT")
-            return lbl
-        end
+    -- Layout constants
+    local LX      = 10      -- label left edge
+    local LABEL_W = 82
+    local CX      = LX + LABEL_W + 8   -- control left edge
+    local CTRL_W  = 220
+    local RH      = 26      -- row height (control + gap)
+    local CH      = 22      -- control height
 
-        -- Condition selector (scrollable list on left, info on right)
-        -- Simple dropdown for condition
-        MakeRow("Condition:", ROW_Y)
-        local condItems = {}
-        for _, c in ipairs(B.CONDITIONS) do
-            table.insert(condItems, { label=c.label, value=c.id })
-        end
-        local condDrop = B:CreateDropdown(picker, CTRL_W, CTRL_H, condItems, nil)
-        condDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", LABEL_W + 18, ROW_Y)
-        picker._condDrop = condDrop
+    local function RowY(n) return -(36 + n * RH) end  -- n=0 is first row
 
-        MakeRow("Owner:", ROW_Y - (CTRL_H + GAP))
-        local ownerDrop = B:CreateDropdown(picker, CTRL_W, CTRL_H, OwnerItems(), nil)
-        ownerDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", LABEL_W + 18, ROW_Y - (CTRL_H + GAP))
-        picker._ownerDrop = ownerDrop
-
-        MakeRow("Pet Slot:", ROW_Y - (CTRL_H + GAP)*2)
-        local petDrop = B:CreateDropdown(picker, CTRL_W, CTRL_H, PetSlotItems(), nil)
-        petDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", LABEL_W + 18, ROW_Y - (CTRL_H + GAP)*2)
-        picker._petDrop = petDrop
-
-        MakeRow("Arg/Name:", ROW_Y - (CTRL_H + GAP)*3)
-        local argBox = B:CreateEditBox(picker, CTRL_W, CTRL_H, "e.g. 1  or  Burning Aura")
-        argBox:SetPoint("TOPLEFT", picker, "TOPLEFT", LABEL_W + 18, ROW_Y - (CTRL_H + GAP)*3)
-        picker._argBox = argBox
-
-        MakeRow("Operator:", ROW_Y - (CTRL_H + GAP)*4)
-        local opDrop = B:CreateDropdown(picker, 80, CTRL_H, OpItems("compare"), nil)
-        opDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", LABEL_W + 18, ROW_Y - (CTRL_H + GAP)*4)
-        picker._opDrop = opDrop
-
-        MakeRow("Value:", ROW_Y - (CTRL_H + GAP)*4)
-        local valBox = B:CreateEditBox(picker, 100, CTRL_H, "50")
-        valBox:SetPoint("TOPLEFT", opDrop, "TOPRIGHT", 8, 0)
-        picker._valBox = valBox
-
-        -- Preview
-        local previewLbl = B:CreateLabel(picker, "Preview:", 11, 0.7, 0.7, 0.9)
-        previewLbl:SetPoint("TOPLEFT", picker, "TOPLEFT", 10, ROW_Y - (CTRL_H + GAP)*5)
-        local previewText = B:CreateLabel(picker, "", 11, 0.3, 1, 0.4)
-        previewText:SetPoint("TOPLEFT", picker, "TOPLEFT", LABEL_W + 18, ROW_Y - (CTRL_H + GAP)*5)
-        previewText:SetWidth(280)
-        previewText:SetJustifyH("LEFT")
-        picker._previewText = previewText
-
-        -- Add / Cancel buttons
-        local addBtn = B:CreateButton(picker, 90, 26, "Add", function()
-            local cid   = picker._condDrop:GetValue()
-            local owner = picker._ownerDrop:GetValue()
-            local pet   = picker._petDrop:GetValue()
-            local arg   = picker._argBox:GetText()
-            local op    = picker._opDrop:GetValue()
-            local val   = picker._valBox:GetText()
-            local condStr = BuildConditionString(owner, pet, cid, op, arg, val)
-            if condStr and picker._onDone then
-                picker._onDone(condStr)
-            end
-            picker:Hide()
-        end)
-        addBtn:SetPoint("BOTTOMRIGHT", picker, "BOTTOMRIGHT", -40, 10)
-
-        local cancelBtn = B:CreateButton(picker, 70, 26, "Cancel", function()
-            picker:Hide()
-        end)
-        cancelBtn:SetPoint("RIGHT", addBtn, "LEFT", -6, 0)
-
-        -- Live preview update
-        local function UpdatePreview()
-            local cid   = picker._condDrop:GetValue()
-            local owner = picker._ownerDrop:GetValue()
-            local pet   = picker._petDrop:GetValue()
-            local arg   = picker._argBox:GetText()
-            local op    = picker._opDrop:GetValue()
-            local val   = picker._valBox:GetText()
-            local s = BuildConditionString(owner, pet, cid, op, arg, val) or ""
-            picker._previewText:SetText("|cff55ff55" .. s .. "|r")
-
-            -- Update op choices based on condition type
-            local def = B:GetConditionDef(cid)
-            if def then
-                local newOps = OpItems(def.type)
-                picker._opDrop:SetItems(newOps)
-            end
-        end
-
-        -- Wire up change events
-        condDrop:SetScript("OnMouseDown", function(self, ...)
-            if condDrop.orig_OnMouseDown then condDrop.orig_OnMouseDown(self, ...) end
-            C_Timer.After(0.05, UpdatePreview)
-        end)
-        -- Patch all dropdowns to call UpdatePreview after selection
-        -- We do this by wrapping after each SetItems call in practice;
-        -- simpler: poll with OnUpdate every 0.2s when picker is shown
-        picker._previewTimer = 0
-        picker:SetScript("OnUpdate", function(self, elapsed)
-            self._previewTimer = (self._previewTimer or 0) + elapsed
-            if self._previewTimer >= 0.15 then
-                self._previewTimer = 0
-                UpdatePreview()
-            end
-        end)
+    local function MakeLabel(text, row)
+        local lbl = B:CreateLabel(picker, text, 11, 0.7, 0.7, 0.9)
+        lbl:SetPoint("TOPLEFT", picker, "TOPLEFT", LX, RowY(row))
+        lbl:SetWidth(LABEL_W)
+        lbl:SetJustifyH("RIGHT")
+        return lbl
     end
 
-    picker._onDone = onDone
+    -- Row 0: Condition
+    MakeLabel("Condition:", 0)
+    -- condItems built fresh each open — stored as builder function
+    local condDrop = B:CreateDropdown(picker, CTRL_W, CH, {}, nil)
+    condDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", CX, RowY(0))
+    picker._condDrop = condDrop
+
+    -- Row 1: Owner
+    MakeLabel("Owner:", 1)
+    local ownerDrop = B:CreateDropdown(picker, CTRL_W, CH, OwnerItems(), nil)
+    ownerDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", CX, RowY(1))
+    picker._ownerDrop = ownerDrop
+
+    -- Row 2: Pet Slot
+    MakeLabel("Pet Slot:", 2)
+    local petDrop = B:CreateDropdown(picker, CTRL_W, CH, PetSlotItems(), nil)
+    petDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", CX, RowY(2))
+    picker._petDrop = petDrop
+
+    -- Row 3: Arg / Name
+    MakeLabel("Arg/Name:", 3)
+    local argBox = B:CreateEditBox(picker, CTRL_W, CH, "e.g. 1  or  Burning Aura")
+    argBox:SetPoint("TOPLEFT", picker, "TOPLEFT", CX, RowY(3))
+    picker._argBox = argBox
+
+    -- Row 4: Operator  [dropdown 80px]  Value [editbox 100px]   — single row, no overlap
+    MakeLabel("Op / Value:", 4)
+    local opDrop = B:CreateDropdown(picker, 80, CH, OpItems("compare"), nil)
+    opDrop:SetPoint("TOPLEFT", picker, "TOPLEFT", CX, RowY(4))
+    picker._opDrop = opDrop
+
+    local valBox = B:CreateEditBox(picker, 110, CH, "0")
+    valBox:SetPoint("TOPLEFT", opDrop, "TOPRIGHT", 8, 0)
+    picker._valBox = valBox
+
+    -- Row 5: Preview
+    MakeLabel("Preview:", 5)
+    local previewText = B:CreateLabel(picker, "", 11, 0.3, 1, 0.4)
+    previewText:SetPoint("TOPLEFT", picker, "TOPLEFT", CX, RowY(5))
+    previewText:SetWidth(300)
+    previewText:SetJustifyH("LEFT")
+    picker._previewText = previewText
+
+    -- Buttons
+    local addBtn = B:CreateButton(picker, 90, 26, "Add", function()
+        local condStr = BuildConditionString(
+            picker._ownerDrop:GetValue(),
+            picker._petDrop:GetValue(),
+            picker._condDrop:GetValue(),
+            picker._opDrop:GetValue(),
+            picker._argBox:GetText(),
+            picker._valBox:GetText()
+        )
+        if condStr and picker._onDone then picker._onDone(condStr) end
+        picker:Hide()
+    end)
+    addBtn:SetPoint("BOTTOMRIGHT", picker, "BOTTOMRIGHT", -10, 8)
+
+    local cancelBtn = B:CreateButton(picker, 70, 26, "Cancel", function()
+        picker:Hide()
+    end)
+    cancelBtn:SetPoint("RIGHT", addBtn, "LEFT", -6, 0)
+
+    -- Live preview + operator refresh (polling — works for all controls)
+    local function UpdatePreview()
+        local cid = picker._condDrop:GetValue()
+        local s   = BuildConditionString(
+            picker._ownerDrop:GetValue(),
+            picker._petDrop:GetValue(),
+            cid,
+            picker._opDrop:GetValue(),
+            picker._argBox:GetText(),
+            picker._valBox:GetText()
+        ) or ""
+        picker._previewText:SetText("|cff55ff55" .. s .. "|r")
+
+        -- Refresh op list to match condition type
+        local def = B:GetConditionDef(cid)
+        if def then picker._opDrop:SetItems(OpItems(def.type)) end
+    end
+
+    picker._previewTimer = 0
+    picker:SetScript("OnUpdate", function(self, elapsed)
+        self._previewTimer = self._previewTimer + elapsed
+        if self._previewTimer >= 0.12 then
+            self._previewTimer = 0
+            UpdatePreview()
+        end
+    end)
+end
+
+-- ─────────────────────────────────────────────────────────────
+-- Public entry point
+-- ─────────────────────────────────────────────────────────────
+function B:OpenConditionPicker(existing, onDone)
+    EnsurePicker()
+
+    -- Rebuild condition items fresh every open so they are never empty
+    local condItems = {}
+    for _, c in ipairs(B.CONDITIONS) do
+        table.insert(condItems, { label=c.label, value=c.id })
+    end
+    picker._condDrop:SetItems(condItems)
+
+    picker._onDone       = onDone
+    picker._previewTimer = 0
     picker:Show()
     picker:Raise()
 end

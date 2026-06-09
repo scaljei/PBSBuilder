@@ -181,43 +181,61 @@ end
 -- ─────────────────────────────────────────────────────────────
 local minimapBtn
 
+-- Minimap button angle (degrees, 0=right, goes clockwise)
+local MINIMAP_ANGLE = 220
+
+local function UpdateMinimapButtonPosition()
+    if not minimapBtn then return end
+    local angle  = math.rad(MINIMAP_ANGLE)
+    local radius = (Minimap:GetWidth() / 2) + 5
+    local x = math.cos(angle) * radius
+    local y = math.sin(angle) * radius
+    minimapBtn:ClearAllPoints()
+    minimapBtn:SetPoint("CENTER", Minimap, "CENTER", x, y)
+end
+
 local function CreateMinimapButton()
     if minimapBtn then return end
 
-    minimapBtn = CreateFrame("Button", "PBSBuilderMinimapBtn", Minimap)
-    minimapBtn:SetSize(32, 32)
-    minimapBtn:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 10, -10)
-    minimapBtn:SetFrameLevel(Minimap:GetFrameLevel() + 5)
+    -- Parent to MinimapBackdrop so the button rides with the minimap
+    -- but does NOT clip inside the circular mask
+    local parent = MinimapBackdrop or Minimap
+    minimapBtn = CreateFrame("Button", "PBSBuilderMinimapBtn", parent)
+    minimapBtn:SetSize(31, 31)
+    minimapBtn:SetFrameLevel(parent:GetFrameLevel() + 8)
     minimapBtn:SetFrameStrata("MEDIUM")
 
-    minimapBtn:SetNormalTexture("Interface/Icons/Achievement_PetBattle_WinPVP")
-    minimapBtn:GetNormalTexture():SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    -- Icon: pet battle themed (paw trophy); swap to addon icon once art exists (#3)
+    local icon = minimapBtn:CreateTexture(nil, "BACKGROUND")
+    icon:SetTexture("Interface/Icons/Pet_Type_Beast")
+    icon:SetAllPoints()
+    icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    minimapBtn._icon = icon
+
+    -- Circular mask overlay so it looks like a standard minimap button
+    local border = minimapBtn:CreateTexture(nil, "OVERLAY")
+    border:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
+    border:SetSize(53, 53)
+    border:SetPoint("CENTER")
 
     minimapBtn:SetHighlightTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight", "ADD")
+    minimapBtn:SetPushedTexture("Interface/Minimap/UI-Minimap-ZoomButton-Down")
 
-    local ring = minimapBtn:CreateTexture(nil, "OVERLAY")
-    ring:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
-    ring:SetSize(56, 56)
-    ring:SetPoint("CENTER")
+    UpdateMinimapButtonPosition()
 
     minimapBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     minimapBtn:SetScript("OnClick", function(s, btn)
         local mf = BuildMainFrame()
-        if mf:IsShown() then
-            mf:Hide()
-        else
-            mf:Show()
-        end
+        if mf:IsShown() then mf:Hide() else mf:Show() end
     end)
     minimapBtn:SetScript("OnEnter", function()
         GameTooltip:SetOwner(minimapBtn, "ANCHOR_LEFT")
         GameTooltip:AddLine("|cffffff00PBS Builder|r")
         GameTooltip:AddLine("Click to open the Pet Battle Script builder.", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("|cffaaaaaa/pbsb  •  /pbsbd for debug log|r", 0.6, 0.6, 0.6)
         GameTooltip:Show()
     end)
-    minimapBtn:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    minimapBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
 -- ─────────────────────────────────────────────────────────────
