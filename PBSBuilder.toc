@@ -3,6 +3,7 @@
 ## Notes: Visual drag-and-drop script builder for Pet Battle Scripts (PBS)
 ## Author: scaljei
 ## Version: 1.0.0
+## Category: Pet Battles
 ## Dependencies: tdBattlePetScript
 ## SavedVariables: PBSBuilderDB
 
