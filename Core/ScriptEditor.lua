@@ -33,11 +33,7 @@ function ScriptEditor:New(parent)
     local nameLbl = B:CreateLabel(nameBar, "Script Name:", 11, 0.8, 0.7, 0.3)
     nameLbl:SetPoint("LEFT", nameBar, "LEFT", 8, 0)
 
-    local nameBox = B:CreateEditBox(nameBar, 200, 22, "My Pet Script")
-    nameBox:SetPoint("LEFT", nameLbl, "RIGHT", 6, 0)
-    obj.nameBox = nameBox
-
-    -- Toolbar buttons
+    -- Toolbar buttons anchored RIGHT-to-LEFT so they never overflow
     local saveBtn = B:CreateButton(nameBar, 80, 22, "Save to PBS", function()
         obj:SaveToPBS()
     end)
@@ -53,16 +49,21 @@ function ScriptEditor:New(parent)
     end)
     addRowBtn:SetPoint("RIGHT", copyBtn, "LEFT", -4, 0)
 
-    local addIfBtn = B:CreateButton(nameBar, 60, 22, "+ If", function()
+    local addIfBtn = B:CreateButton(nameBar, 50, 22, "+ If", function()
         obj:AddRow({ action="ability 1", conditions={}, isIfBlock=false })
-        -- Add a paired endif comment placeholder
     end)
     addIfBtn:SetPoint("RIGHT", addRowBtn, "LEFT", -4, 0)
 
-    local clearBtn = B:CreateButton(nameBar, 55, 22, "Clear", function()
+    local clearBtn = B:CreateButton(nameBar, 50, 22, "Clear", function()
         obj:ClearRows()
     end)
     clearBtn:SetPoint("RIGHT", addIfBtn, "LEFT", -4, 0)
+
+    -- Name box stretches to fill whatever space remains between label and buttons
+    local nameBox = B:CreateEditBox(nameBar, 100, 22, "My Pet Script")
+    nameBox:SetPoint("LEFT",  nameLbl,  "RIGHT", 6,  0)
+    nameBox:SetPoint("RIGHT", clearBtn, "LEFT",  -6, 0)
+    obj.nameBox = nameBox
 
     -- ── Scroll area for rows ─────────────────────────────────
     local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
