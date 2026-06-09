@@ -61,6 +61,14 @@ local function BuildMainFrame()
     listScroll:SetPoint("TOPLEFT",  leftPanel, "TOPLEFT", 4, -30)
     listScroll:SetPoint("BOTTOMRIGHT", leftPanel, "BOTTOMRIGHT", -20, 26)
 
+    -- Mousewheel scrolling
+    listScroll:EnableMouseWheel(true)
+    listScroll:SetScript("OnMouseWheel", function(self, delta)
+        local current = self:GetVerticalScroll()
+        local max     = self:GetVerticalScrollRange()
+        self:SetVerticalScroll(math.max(0, math.min(max, current - delta * 26)))
+    end)
+
     local listContent = CreateFrame("Frame", nil, listScroll)
     listContent:SetWidth(listScroll:GetWidth())
     listContent:SetHeight(10)

@@ -70,6 +70,15 @@ function ScriptEditor:New(parent)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -22, 130)
     obj.scrollFrame = scrollFrame
 
+    -- Mousewheel scrolling (not wired by template in TWW)
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local current = self:GetVerticalScroll()
+        local max     = self:GetVerticalScrollRange()
+        local step    = 40
+        self:SetVerticalScroll(math.max(0, math.min(max, current - delta * step)))
+    end)
+
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetWidth(scrollFrame:GetWidth() - 4)
     content:SetHeight(10)
@@ -103,6 +112,12 @@ function ScriptEditor:New(parent)
     local previewScroll = CreateFrame("ScrollFrame", nil, previewOuter, "UIPanelScrollFrameTemplate")
     previewScroll:SetPoint("TOPLEFT",  previewOuter, "TOPLEFT", 4, -18)
     previewScroll:SetPoint("BOTTOMRIGHT", previewOuter, "BOTTOMRIGHT", -20, 4)
+    previewScroll:EnableMouseWheel(true)
+    previewScroll:SetScript("OnMouseWheel", function(self, delta)
+        local current = self:GetVerticalScroll()
+        local max     = self:GetVerticalScrollRange()
+        self:SetVerticalScroll(math.max(0, math.min(max, current - delta * 20)))
+    end)
 
     local previewEB = CreateFrame("EditBox", nil, previewScroll)
     previewEB:SetMultiLine(true)
