@@ -118,19 +118,42 @@ function B:CreateDropdown(parent, w, h, items, onSelect)
     popup._btn   = btn
     popup._rows  = {}
 
+    local MAX_VISIBLE_ROWS = 10
+    local ROW_H = 20
+
+    -- Scroll frame inside popup for long lists
+    local popupScroll = CreateFrame("ScrollFrame", nil, popup)
+    popupScroll:SetPoint("TOPLEFT",     popup, "TOPLEFT",     2,  -2)
+    popupScroll:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -2,  2)
+    popupScroll:EnableMouseWheel(true)
+    popupScroll:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll()
+        local max = self:GetVerticalScrollRange()
+        self:SetVerticalScroll(math.max(0, math.min(max, cur - delta * ROW_H * 2)))
+    end)
+
+    local popupContent = CreateFrame("Frame", nil, popupScroll)
+    popupContent:SetWidth(w - 4)
+    popupScroll:SetScrollChild(popupContent)
+
     local function BuildPopup()
         for _, r in ipairs(popup._rows) do r:Hide() end
         popup._rows = {}
         local popupItems = popup._items or {}
-        local rh = 20
+        local visRows   = math.min(#popupItems, MAX_VISIBLE_ROWS)
+        local popupH    = visRows * ROW_H + 4
+
         popup:SetWidth(w)
-        popup:SetHeight(math.min(#popupItems, 12) * rh + 4)
+        popup:SetHeight(popupH)
+        popupContent:SetWidth(w - 4)
+        popupContent:SetHeight(#popupItems * ROW_H)
+        popupScroll:SetVerticalScroll(0)
 
         for i, item in ipairs(popupItems) do
-            local row = CreateFrame("Button", nil, popup, "BackdropTemplate")
-            row:SetFrameLevel(popup:GetFrameLevel() + 1)
-            row:SetSize(w, rh)
-            row:SetPoint("TOPLEFT", popup, "TOPLEFT", 2, -2 - (i-1)*rh)
+            local row = CreateFrame("Button", nil, popupContent)
+            row:SetFrameLevel(popup:GetFrameLevel() + 2)
+            row:SetSize(w - 4, ROW_H)
+            row:SetPoint("TOPLEFT", popupContent, "TOPLEFT", 0, -(i-1) * ROW_H)
             local fs = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             fs:SetPoint("LEFT", row, "LEFT", 6, 0)
             fs:SetText(item.label)
@@ -162,7 +185,15 @@ function B:CreateDropdown(parent, w, h, items, onSelect)
         CloseOpenDropdown()
         BuildPopup()
         popup:ClearAllPoints()
-        popup:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -2)
+
+        -- Flip upward if popup would go off the bottom of the screen
+        local btnBottom = btn:GetBottom()
+        local popupH    = math.min(#(popup._items or {}), MAX_VISIBLE_ROWS) * ROW_H + 4
+        if btnBottom and btnBottom - popupH < 0 then
+            popup:SetPoint("BOTTOMLEFT", btn, "TOPLEFT", 0, 2)
+        else
+            popup:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -2)
+        end
         popup:Show()
         openDropdown = popup
     end)
